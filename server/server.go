@@ -106,12 +106,14 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Error connecting with database!"))
 		return
 	}
+	defer db.Close()
 
 	line, err := db.Query("select * from users where id = $1", ID)
 	if err != nil {
 		w.Write([]byte("Error getting user!"))
 		return
 	}
+	defer line.Close()
 
 	var user user
 	if line.Next() {
@@ -167,6 +169,38 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := statement.Exec(user.Name, user.Email, ID); err != nil {
 		w.Write([]byte("Error updating user!"))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DeleteUser remove a user in the database
+func DeleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	ID, err := strconv.ParseUint(params["id"], 10, 32)
+	if err != nil {
+		w.Write([]byte("Error converting param to integer!"))
+		return
+	}
+
+	db, err := db.Connect()
+	if err != nil {
+		w.Write([]byte("Error connecting with database!"))
+		return
+	}
+	defer db.Close()
+
+	statement, err := db.Prepare("delete from users where id = $1")
+	if err != nil {
+		w.Write([]byte("Error creating statement!"))
+		return
+	}
+	defer statement.Close()
+
+	if _, err := statement.Exec(ID); err != nil {
+		w.Write([]byte("Error deleting user!"))
 		return
 	}
 
