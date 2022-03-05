@@ -65,7 +65,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	lines, err := db.Query("select * from users")
+	lines, err := db.Query("select * from users order by id")
 	if err != nil {
 		w.Write([]byte("Error getting users!"))
 		return
@@ -127,4 +127,48 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Error converting user to JSON!"))
 		return
 	}
+}
+
+// UpdateUser change a user data in the database
+func UpdateUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	ID, err := strconv.ParseUint(params["id"], 10, 32)
+	if err != nil {
+		w.Write([]byte("Error converting param to integer!"))
+		return
+	}
+
+	requestBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.Write([]byte("Error reading request body!"))
+		return
+	}
+
+	var user user
+	if err = json.Unmarshal(requestBody, &user); err != nil {
+		w.Write([]byte("Error converting user to struct!"))
+		return
+	}
+
+	db, err := db.Connect()
+	if err != nil {
+		w.Write([]byte("Error connecting to database!"))
+		return
+	}
+	defer db.Close()
+
+	statement, err := db.Prepare("update users set name = $1, email = $2 where id = $3")
+	if err != nil {
+		w.Write([]byte("Error creating statement!"))
+		return
+	}
+	defer statement.Close()
+
+	if _, err := statement.Exec(user.Name, user.Email, ID); err != nil {
+		w.Write([]byte("Error updating user!"))
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
